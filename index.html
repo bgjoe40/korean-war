@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>6·25 전쟁 전개 지도</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="seal">6·25</span>
+      <div>
+        <h1>6·25 전쟁</h1>
+        <p>1950.6.25 – 1953.7.27 전쟁의 전개</p>
+      </div>
+    </div>
+    <div class="progress" title="연대기 진행">
+      <div class="progress-bar"><div id="progressFill"></div></div>
+      <span id="progressText"></span>
+    </div>
+    <div class="top-controls">
+      <button id="btnCodex" class="btn codex-btn" title="무기도감 열기">📖 <span class="hide-sm">무기</span>도감</button>
+      <button id="btnPrev" class="btn" title="이전 사건 (↑)">◀ 이전</button>
+      <button id="btnAuto" class="btn" title="연대기 자동 재생 (Space)">▶ <span class="hide-sm">연대기 </span>재생</button>
+      <button id="btnNext" class="btn" title="다음 사건 (↓)">다음 ▶</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <span>주요 사건 · 전투</span>
+        <span class="legend-mini"><i class="t-land"></i>육전 <i class="t-sea"></i>상륙·해상 <i class="t-event"></i>사건</span>
+      </div>
+      <div id="timeline" class="timeline"></div>
+    </aside>
+
+    <section class="center">
+      <div id="map"></div>
+
+      <!-- 범례는 접어 두어 지도 북서쪽을 가리지 않게 한다 -->
+      <details class="map-legend" id="mapLegend">
+        <summary>범례 · 표시 설정</summary>
+        <div class="lg-grid">
+          <div><i style="background:var(--joseon)"></i>국군·유엔군 지역</div>
+          <div><i style="background:var(--japan)"></i>북한·중공군 지역</div>
+          <div><i class="line" style="background:#fde68a"></i>전선</div>
+          <div><i class="line" style="background:var(--joseon)"></i>국군 진격로</div>
+          <div><i class="line" style="background:var(--un)"></i>유엔군 진격로</div>
+          <div><i class="line" style="background:var(--japan)"></i>북한군 진격로</div>
+          <div><i class="line" style="background:var(--ming)"></i>중공군 진격로</div>
+        </div>
+        <div class="lg-sep"></div>
+        <label><input type="checkbox" id="toggleUnits" checked> 부대 배치 표시</label>
+        <label><input type="checkbox" id="toggleMinor" checked> 연대·대대·중대까지 표시</label>
+        <label><input type="checkbox" id="toggleFac" checked> 비행장·항구 표시</label>
+        <div class="lg-ech">XXX 군단 · XX 사단 · X 여단<br>III 연대 · II 대대 · I 중대 (확대 시)<br>✈ 비행장·항공 · ⚓ 항구·해군</div>
+      </details>
+
+      <div class="event-card" id="eventCard"></div>
+
+      <div class="unit-sheet hidden" id="unitSheet">
+        <button class="btn" id="sheetClose">닫기 ✕</button>
+        <div id="sheetBody"></div>
+      </div>
+    </section>
+
+    <aside class="panel" id="panel"></aside>
+  </main>
+
+  <div class="unit-modal hidden" id="unitModal"></div>
+  <div class="codex hidden" id="codex"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/data-events.js"></script>
+  <script src="js/data-units.js"></script>
+  <script src="js/data-orbat.js"></script>
+  <script src="js/data-subunits.js"></script>
+  <script src="js/data-research.js"></script>
+  <script src="js/data-facilities.js"></script>
+  <script src="js/data-weapons.js"></script>
+  <script src="js/data-weapon-media.js"></script>
+  <script src="js/codex.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/unit-modal.js"></script>
+</body>
+</html>

@@ -63,6 +63,35 @@
 
       <div class="event-card" id="eventCard"></div>
 
+      <!-- 전투 재생 화면 -->
+      <div class="battle-hud hidden" id="battleHud">
+        <div class="narr">
+          <div class="narr-head">
+            <span class="narr-time" id="narrTime"></span>
+            <span class="narr-title" id="narrTitle"></span>
+            <span class="narr-air hidden" id="narrAir">✈ 항공 활동</span>
+            <span class="narr-step" id="narrStep"></span>
+          </div>
+          <p class="narr-text" id="narrText"></p>
+          <blockquote class="narr-quote hidden" id="narrQuote"></blockquote>
+        </div>
+        <div class="controls">
+          <button class="btn icon" id="bRestart" title="처음부터">⏮</button>
+          <button class="btn icon" id="bPrevPh" title="이전 단계 (←)">⏪</button>
+          <button class="btn icon primary" id="bPlay" title="재생/일시정지 (Space)">▶</button>
+          <button class="btn icon" id="bNextPh" title="다음 단계 (→)">⏩</button>
+          <div class="scrub" id="scrub"><div class="scrub-fill" id="scrubFill"></div><div class="scrub-ticks" id="scrubTicks"></div></div>
+          <select id="bSpeed" class="btn" title="재생 속도">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+          <button class="btn" id="bExit">전략 지도로 ✕</button>
+        </div>
+      </div>
+      <div class="battle-banner hidden" id="battleBanner"></div>
+
       <div class="unit-sheet hidden" id="unitSheet">
         <button class="btn" id="sheetClose">닫기 ✕</button>
         <div id="sheetBody"></div>
@@ -85,6 +114,8 @@
   <script src="js/data-weapons.js"></script>
   <script src="js/data-weapon-media.js"></script>
   <script src="js/codex.js"></script>
+  <script src="js/data-battles.js"></script>
+  <script src="js/battle.js"></script>
   <script src="js/app.js"></script>
   <script src="js/unit-modal.js"></script>
 </body>

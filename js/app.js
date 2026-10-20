@@ -99,11 +99,12 @@ function buildTimeline() {
     const t = TYPE_INFO[e.type];
     const res = e.result === 'south' ? '<span class="tag win-joseon">국군·유엔군 우세</span>'
       : e.result === 'north' ? '<span class="tag win-japan">북한·중공군 우세</span>' : '';
+    const bt = (EVENT_BATTLES[e.id] || []).length ? '<span class="tag battle" title="전투 전개 재생">⚔ 전투 재생</span>' : '';
     h += `<div class="ev" data-i="${i}">
       <span class="dot ${t.cls}"></span>
       <div class="ev-date">${e.date}</div>
       <div class="ev-title">${e.title}</div>
-      <div class="ev-tags"><span class="tag">${t.name}</span>${res}</div>
+      <div class="ev-tags"><span class="tag">${t.name}</span>${res}${bt}</div>
     </div>`;
     return h;
   }).join('');
@@ -111,12 +112,16 @@ function buildTimeline() {
     const item = ev.target.closest('.ev');
     if (!item) return;
     stopAuto();
-    select(+item.dataset.i);
+    const i = +item.dataset.i;
+    select(i);
+    // "⚔ 전투 재생" 태그를 누르면 바로 첫 번째 전투 재생
+    if (ev.target.classList.contains('battle')) setTimeout(() => startBattle(EVENT_BATTLES[EVENTS[i].id][0]), 300);
   });
 }
 
 function select(i) {
   if (i < 0 || i >= EVENTS.length) return;
+  if (Battle.active) { Battle.stop(true); restoreStrategic(); }
   const prevIdx = App.idx;
   App.idx = i;
   const e = EVENTS[i];
@@ -390,7 +395,8 @@ function renderEventCard(e) {
   const card = document.getElementById('eventCard');
   card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
   // 전투 현장 확대 버튼: 세부 배치(연대·대대·중대)는 확대해야 보이므로 바로 갈 수 있게 한다
-  const spots = (e.detail || []).map((d, k) => `<button class="btn primary" data-spot="${k}">🔍 ${d.name} 현장 확대</button>`).join('');
+  const spots = (EVENT_BATTLES[e.id] || []).map((id) => `<button class="btn battle" data-battle="${id}">⚔ ${BATTLES[id].title} 전개 보기</button>`).join('')
+    + (e.detail || []).map((d, k) => `<button class="btn primary" data-spot="${k}">🔍 ${d.name} 현장 확대</button>`).join('');
   card.innerHTML = `
     <div class="ec-head"><h2>${e.title}</h2><span class="ec-date">${e.date} · ${PLACES[e.place].name}</span>
       <button class="btn collapse" id="ecMin" title="접기/펼치기">${card.classList.contains('min') ? '펼치기' : '접기'}</button></div>
@@ -401,6 +407,7 @@ function renderEventCard(e) {
     card.classList.toggle('min');
     document.getElementById('ecMin').textContent = card.classList.contains('min') ? '펼치기' : '접기';
   };
+  card.querySelectorAll('[data-battle]').forEach((b) => { b.onclick = () => startBattle(b.dataset.battle); });
   card.querySelectorAll('[data-spot]').forEach((b) => {
     b.onclick = () => {
       stopAuto();
@@ -499,6 +506,33 @@ function weaponList(e) {
     `<button class="wp-chip" data-wp="${w.id}" style="--c:${FACTIONS[w.f[0]].color}" title="${w.name}">${thumb(w)}<span class="wp-name">${w.name}</span></button>`).join('')}</div>`;
 }
 
+// ── 전투 재생 모드: 전략 지도 레이어를 숨기고 전투 재생 엔진에 지도를 넘긴다
+const STRATEGIC_LAYERS = ['gZones', 'gFront', 'gLabels', 'gRoutes', 'gUnits', 'gPulse', 'gFac'];
+function startBattle(id) {
+  stopAuto();
+  closeCards();
+  if (Battle.active) Battle.stop(true);
+  for (const g of STRATEGIC_LAYERS) App.map.removeLayer(App[g]);
+  for (const elId of ['eventCard', 'mapLegend']) document.getElementById(elId).classList.add('hidden');
+  Battle.start(BATTLES[id], App.map, endBattle);
+}
+
+function restoreStrategic() {
+  for (const g of STRATEGIC_LAYERS) {
+    if (g === 'gUnits' && !document.getElementById('toggleUnits').checked) continue;
+    if (g === 'gFac' && !document.getElementById('toggleFac').checked) continue;
+    App[g].addTo(App.map);
+  }
+  for (const elId of ['eventCard', 'mapLegend']) document.getElementById(elId).classList.remove('hidden');
+}
+
+function endBattle() {
+  restoreStrategic();
+  const i = App.idx;
+  App.idx = -1;
+  select(i);
+}
+
 // ── 연대기 자동 재생
 function stopAuto() {
   if (!App.autoTimer) return;
@@ -555,6 +589,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (Codex.isOpen()) { if (ev.key === 'Escape') Codex.close(); return; }
     if (UnitModal.isOpen()) { if (ev.key === 'Escape') UnitModal.close(); return; }
     if (ev.target.matches('input, textarea, select')) return;
+    if (Battle.active) {
+      if (ev.code === 'Space') { ev.preventDefault(); Battle.toggle(); }
+      if (ev.key === 'Escape') Battle.stop(false);
+      if (ev.key === 'ArrowRight') Battle.step(1);
+      if (ev.key === 'ArrowLeft') Battle.step(-1);
+      return;
+    }
     if (ev.key === 'ArrowDown' || ev.key === 'ArrowRight') { ev.preventDefault(); stopAuto(); select(App.idx + 1); }
     if (ev.key === 'ArrowUp' || ev.key === 'ArrowLeft') { ev.preventDefault(); stopAuto(); select(App.idx - 1); }
     if (ev.code === 'Space') { ev.preventDefault(); toggleAuto(); }

@@ -235,13 +235,53 @@ const Battle = (() => {
     document.querySelectorAll('#phaseList li').forEach((li, i) => li.classList.toggle('cur', i === k));
   }
 
+  // 포병·함포: 쏜 곳에서 포탄이 포물선을 그리며 날아가 목표 주변에 떨어져 터진다
+  const SHELL = { art: { n: 3, big: false }, ship: { n: 2, big: true } };
+  function salvo(f, src, tgt) {
+    const fx = fxLayer, live = () => fx === fxLayer && map.hasLayer(fx);
+    const unitEl = markers[f.to].getElement()?.querySelector('.unit');
+    const p0 = map.latLngToLayerPoint([src.lat, src.lng]);
+    for (let i = 0; i < SHELL[f.kind].n; i++) {
+      const jx = (Math.random() - 0.5) * 46, jy = (Math.random() - 0.5) * 34;
+      const p1 = map.latLngToLayerPoint([tgt.lat, tgt.lng]).add([jx, jy]);
+      const hit = map.layerPointToLatLng(p1);
+      const dx = p0.x - p1.x, dy = p0.y - p1.y, dist = Math.hypot(dx, dy);
+      const lift = Math.min(160, 30 + dist * 0.45);
+      const dur = Math.min(1400, 450 + dist * 1.6) / speed;
+      setTimeout(() => {
+        if (!live()) return;
+        // 포구 섬광
+        const mz = L.marker([src.lat, src.lng], { interactive: false, icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="muzzle"></div>' }) }).addTo(fx);
+        setTimeout(() => fx.removeLayer(mz), 400);
+        // 포탄 비행 (목표 지점 기준 좌표에서 출발점→목표로 2차 베지어)
+        const sh = L.marker(hit, { interactive: false, icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="shell"></div>' }) }).addTo(fx);
+        const el = sh.getElement().firstChild;
+        const frames = [];
+        for (let k = 0; k <= 16; k++) {
+          const s = k / 16, u = 1 - s;
+          const x = u * u * dx + 2 * u * s * (dx / 2), y = u * u * dy + 2 * u * s * (dy / 2 - lift);
+          frames.push({ transform: `translate(${x}px, ${y}px) scale(${1 + Math.sin(Math.PI * s) * 0.6})` });
+        }
+        el.animate(frames, { duration: dur, easing: 'linear', fill: 'forwards' }).onfinish = () => {
+          if (!live()) return;
+          fx.removeLayer(sh);
+          const bm = L.marker(hit, { interactive: false, icon: L.divIcon({ className: '', iconSize: [0, 0],
+            html: `<div class="impact ${SHELL[f.kind].big ? 'big' : ''}"><i class="flash"></i><i class="dirt"></i><i class="ring"></i></div>` }) }).addTo(fx);
+          setTimeout(() => fx.removeLayer(bm), 2200);
+          if (unitEl) { unitEl.classList.remove('hit'); void unitEl.offsetWidth; unitEl.classList.add('hit'); }
+        };
+      }, i * (160 + Math.random() * 140) / speed);
+    }
+  }
+
   function updateFire(st, local, now) {
     const active = local > 0.08 && local < 0.97;
     for (const f of fireLines) {
       const a = st[f.from], b = st[f.to];
       const alive = (a.s > 0.5 || !B.units[f.from].s) && a.o > 0.5;
       f.line.setLatLngs([[a.lat, a.lng], [b.lat, b.lng]]);
-      f.line.setStyle({ opacity: active && alive ? 0.9 : 0 });
+      // 포격은 직선 대신 날아가는 포탄으로 보여 주므로 선은 아주 옅게만 남긴다
+      f.line.setStyle({ opacity: active && alive ? (SHELL[f.kind] ? 0.18 : 0.9) : 0 });
     }
     if (!active || !fireLines.length || !playing) return;
     if (now - lastBoom < 230 / Math.sqrt(speed)) return;
@@ -249,6 +289,7 @@ const Battle = (() => {
     const f = fireLines[Math.floor(Math.random() * fireLines.length)];
     const tgt = st[f.to];
     if ((st[f.from].s < 0.5 && B.units[f.from].s) || st[f.from].o < 0.5) return;
+    if (SHELL[f.kind]) { salvo(f, st[f.from], tgt); return; }
     const kind = FIRE_STYLE[f.kind].boom;
     if (!kind && f.kind === 'evac') return;
     const jx = (Math.random() - 0.5) * 30, jy = (Math.random() - 0.5) * 24;

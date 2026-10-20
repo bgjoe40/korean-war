@@ -300,6 +300,23 @@ button, select { font-family: inherit; }
 .boom.smoke { background: radial-gradient(circle, rgba(220,220,220,.55) 0%, rgba(150,150,150,.25) 50%, rgba(120,120,120,0) 70%); animation-duration: 1.4s; }
 .boom.chute { width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50% 50% 10% 10%; background: #f8fafc; opacity: .9;
   box-shadow: 0 0 0 1px #64748b; animation: chute 1.5s ease-in forwards; }
+/* 포격: 포구 섬광 → 포물선 비행 포탄 → 착탄 섬광·흙먼지·충격파 */
+.muzzle { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fffbe6 0%, #ffc04d 45%, rgba(255, 120, 0, 0) 72%); animation: boom .35s ease-out forwards; }
+.shell { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; pointer-events: none; background: #fff4c4;
+  box-shadow: 0 0 4px 2px rgba(255, 170, 60, .9), 0 0 10px 4px rgba(255, 110, 20, .45); }
+.impact { position: relative; width: 0; height: 0; pointer-events: none; }
+.impact i { position: absolute; left: 0; top: 0; border-radius: 50%; }
+.impact .flash { width: 30px; height: 30px; margin: -15px 0 0 -15px;
+  background: radial-gradient(circle, #fff8d6 0%, #ffb02e 35%, rgba(255, 70, 20, .65) 58%, rgba(255, 60, 0, 0) 72%); animation: boom .55s ease-out forwards; }
+.impact .dirt { width: 34px; height: 26px; margin: -18px 0 0 -17px;
+  background: radial-gradient(ellipse, rgba(92, 72, 50, .85) 0%, rgba(70, 58, 44, .5) 45%, rgba(60, 50, 40, 0) 70%); animation: dirt 2s ease-out forwards; }
+.impact .ring { width: 16px; height: 16px; margin: -8px 0 0 -8px; border: 2px solid rgba(255, 230, 180, .8); animation: ring .6s ease-out forwards; }
+.impact.big .flash { width: 46px; height: 46px; margin: -23px 0 0 -23px; }
+.impact.big .dirt { width: 52px; height: 38px; margin: -26px 0 0 -26px; }
+.impact.big .ring { width: 24px; height: 24px; margin: -12px 0 0 -12px; }
+@keyframes dirt { 0% { transform: scale(.3) translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: scale(1.6) translateY(-10px); opacity: 0; } }
+@keyframes ring { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(3.2); opacity: 0; } }
 @keyframes boom { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
 @keyframes chute { 0% { transform: translateY(-26px) scale(.6); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 0; } }
 

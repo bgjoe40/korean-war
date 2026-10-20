@@ -125,6 +125,7 @@ function select(i) {
   const prevIdx = App.idx;
   App.idx = i;
   const e = EVENTS[i];
+  setHash(`e=${e.id}`);
 
   document.querySelectorAll('.ev').forEach((n) => {
     const k = +n.dataset.i;
@@ -470,7 +471,17 @@ function renderPanel(i) {
     ${weaponList(e)}
     <h3>역사적 의의</h3>
     <div class="card meaning">${e.meaning}</div>
+    ${quizCard(e.id, e.title)}
     <p class="disclaimer">※ 날짜는 양력 기준입니다. 병력·사기 수치는 자료마다 차이가 큰 추정치를 교육용으로 단순화한 값이며, 지도의 전선과 세력 범위는 주요 도시 기준의 개략적인 표시입니다. 부대 위치는 군사편찬연구소 전사 등을 바탕으로 한 개략 위치이며, 연대·대대급 일부는 추정입니다.</p>`;
+}
+
+// 오른쪽 패널: 이 사건·전투의 확인 퀴즈 버튼
+function quizCard(key, name) {
+  const n = Quiz.count(key);
+  if (!n) return '';
+  return `<h3>확인 퀴즈 <small>${n}문제</small></h3>
+    <div class="card qz-card"><span>${name}의 흐름을 이해했는지 확인해 보세요.</span>
+      <button class="btn primary" data-quiz="${key}" data-name="${name}">🧠 퀴즈 풀기</button></div>`;
 }
 
 // 오른쪽 패널: 세력별 부대 배치 목록 (클릭하면 지도에서 해당 부대로 이동)
@@ -515,6 +526,85 @@ function startBattle(id) {
   for (const g of STRATEGIC_LAYERS) App.map.removeLayer(App[g]);
   for (const elId of ['eventCard', 'mapLegend']) document.getElementById(elId).classList.add('hidden');
   Battle.start(BATTLES[id], App.map, endBattle);
+  document.getElementById('panel').insertAdjacentHTML('beforeend', quizCard(`b:${id}`, BATTLES[id].title));
+  setHash(`b=${id}`);
+}
+
+// 전투 id로 바로 재생: 그 전투가 속한 사건을 먼저 고른다
+function openBattle(id) {
+  if (!BATTLES[id]) return;
+  const ev = Object.keys(EVENT_BATTLES).find((k) => EVENT_BATTLES[k].includes(id));
+  const i = EVENTS.findIndex((e) => e.id === ev);
+  if (i >= 0 && i !== App.idx) select(i);
+  startBattle(id);
+}
+
+// ── 주소 공유: #e=사건 id, #b=전투 id, #w=무기 id
+function setHash(h) { history.replaceState(null, '', `#${h}`); }
+function openFromHash() {
+  const m = location.hash.match(/^#([ebw])=([\w-]+)/);
+  if (!m) return false;
+  const [, t, id] = m;
+  if (t === 'e') { const i = EVENTS.findIndex((e) => e.id === id); if (i < 0) return false; select(i); }
+  if (t === 'b') { if (!BATTLES[id]) return false; openBattle(id); }
+  if (t === 'w') { if (App.idx < 0) select(0); Codex.open(id); }
+  return true;
+}
+function share() {
+  const done = () => toast('링크를 복사했습니다. 붙여 넣으면 지금 화면으로 열립니다.');
+  if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done, () => toast(location.href));
+  else toast(location.href);
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ── 검색: 사건·전투·부대·무기
+function searchIndex() {
+  if (searchIndex.cache) return searchIndex.cache;
+  const items = [];
+  EVENTS.forEach((e, i) => items.push({ type: '사건', label: e.title, sub: e.date, text: `${e.title} ${e.desc}`, go: () => select(i) }));
+  for (const [id, b] of Object.entries(BATTLES)) items.push({ type: '전투', label: b.title, sub: b.date, text: b.title, go: () => openBattle(id) });
+  const seen = new Set();
+  EVENTS.forEach((e, i) => (UNITS[e.id] || []).forEach((u, k) => {
+    const key = `${u[0]}|${u[2]}`;
+    if (seen.has(key)) return; // 같은 부대는 처음 등장한 사건으로 연결
+    seen.add(key);
+    items.push({ type: '부대', label: u[2], sub: `${FACTIONS[u[0]].name} · ${e.title}`, text: u[2], go: () => { select(i); setTimeout(() => focusUnit(k), 950); } });
+  }));
+  for (const w of WEAPONS) items.push({ type: '무기', label: w.name, sub: (WEAPON_CAT[w.cat] || {}).name || '', text: `${w.name} ${w.id}`, go: () => Codex.open(w.id) });
+  return (searchIndex.cache = items);
+}
+const norm = (s) => s.toLowerCase().replace(/[\s·()\-]/g, '');
+function runSearch(q) {
+  const box = document.getElementById('searchResults');
+  const n = norm(q);
+  if (!n) { box.classList.add('hidden'); return; }
+  // 이름이 그대로 같음 > 이름이 검색어로 시작 > 이름에 포함 > 설명에만 포함
+  const rank = (it) => { const l = norm(it.label); return l === n ? 0 : l.startsWith(n) ? 1 : l.includes(n) ? 2 : 3; };
+  const hits = searchIndex().filter((it) => norm(it.text).includes(n))
+    .map((it) => [rank(it), it]).sort((a, b) => a[0] - b[0]).map(([, it]) => it)
+    .slice(0, 14);
+  box._hits = hits;
+  box.innerHTML = hits.length
+    ? hits.map((h, k) => `<button class="sr-item${k === 0 ? ' on' : ''}" data-k="${k}"><span class="sr-type">${h.type}</span><b>${h.label}</b><small>${h.sub}</small></button>`).join('')
+    : '<div class="sr-empty">검색 결과가 없습니다</div>';
+  box.classList.remove('hidden');
+}
+function pickSearch(k) {
+  const box = document.getElementById('searchResults');
+  const h = box._hits && box._hits[k];
+  if (!h) return;
+  box.classList.add('hidden');
+  const input = document.getElementById('search');
+  input.value = '';
+  input.blur();
+  stopAuto();
+  h.go();
 }
 
 function restoreStrategic() {
@@ -567,7 +657,38 @@ document.addEventListener('DOMContentLoaded', () => {
     if (row) focusUnit(+row.dataset.k);
     const wp = ev.target.closest('.wp-chip');
     if (wp) { stopAuto(); Codex.open(wp.dataset.wp); }
+    const qz = ev.target.closest('[data-quiz]');
+    if (qz) { stopAuto(); if (Battle.active && Battle.playing) Battle.toggle(); Quiz.start([qz.dataset.quiz], qz.dataset.name); }
   });
+  document.getElementById('btnQuiz').onclick = () => {
+    stopAuto();
+    if (Battle.active && Battle.playing) Battle.toggle();
+    Quiz.start(Quiz.all(), '6·25 전쟁 종합 퀴즈', 10);
+  };
+  document.getElementById('btnShare').onclick = share;
+  const search = document.getElementById('search');
+  search.addEventListener('input', () => runSearch(search.value));
+  search.addEventListener('focus', () => runSearch(search.value));
+  search.addEventListener('keydown', (ev) => {
+    const box = document.getElementById('searchResults');
+    const items = [...box.querySelectorAll('.sr-item')];
+    const at = items.findIndex((b) => b.classList.contains('on'));
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      if (!items.length) return;
+      const nx = (at + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((b, k) => b.classList.toggle('on', k === nx));
+      items[nx].scrollIntoView({ block: 'nearest' });
+    }
+    if (ev.key === 'Enter') { ev.preventDefault(); pickSearch(Math.max(0, at)); }
+    if (ev.key === 'Escape') { box.classList.add('hidden'); search.blur(); }
+  });
+  document.getElementById('searchResults').addEventListener('mousedown', (ev) => {
+    const it = ev.target.closest('.sr-item');
+    if (it) { ev.preventDefault(); pickSearch(+it.dataset.k); }
+  });
+  search.addEventListener('blur', () => setTimeout(() => document.getElementById('searchResults').classList.add('hidden'), 120));
+  window.addEventListener('hashchange', openFromHash);
   document.getElementById('btnCodex').onclick = () => { stopAuto(); Codex.open(); };
   document.getElementById('toggleUnits').onchange = (ev) => {
     if (ev.target.checked) App.gUnits.addTo(App.map); else App.map.removeLayer(App.gUnits);
@@ -586,9 +707,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (isSmall()) document.getElementById('eventCard').classList.add('min');
   document.addEventListener('keydown', (ev) => {
     // 무기도감이 열려 있으면 지도 단축키를 막고 Esc로만 닫는다 (검색창 입력 보호)
+    if (Quiz.isOpen()) { Quiz.key(ev); return; }
     if (Codex.isOpen()) { if (ev.key === 'Escape') Codex.close(); return; }
     if (UnitModal.isOpen()) { if (ev.key === 'Escape') UnitModal.close(); return; }
     if (ev.target.matches('input, textarea, select')) return;
+    if (ev.key === '/') { ev.preventDefault(); document.getElementById('search').focus(); return; }
     if (Battle.active) {
       if (ev.code === 'Space') { ev.preventDefault(); Battle.toggle(); }
       if (ev.key === 'Escape') Battle.stop(false);
@@ -600,5 +723,5 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ev.key === 'ArrowUp' || ev.key === 'ArrowLeft') { ev.preventDefault(); stopAuto(); select(App.idx - 1); }
     if (ev.code === 'Space') { ev.preventDefault(); toggleAuto(); }
   });
-  select(0);
+  if (!openFromHash()) select(0);
 });

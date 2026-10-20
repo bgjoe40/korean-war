@@ -447,8 +447,18 @@ const Battle = (() => {
     t = 0; curPhase = -1; ended = false; lastTs = 0; speed = +$('bSpeed').value;
     // 하단 HUD에 가려지지 않도록 지도 중심을 아래로 보정
     const hud = $('battleHud').offsetHeight || 0;
-    const target = map.unproject(map.project(B.center, B.zoom).add([0, hud / 2 - 20]), B.zoom);
-    map.flyTo(target, B.zoom, { duration: 1.6 });
+    // 전투 중 부대가 오가는 모든 위치(항공기 출발점 제외)가 화면에 들어오도록 확대 수준을 정한다.
+    // B.zoom이 최대, 멀리서 다가오는 부대 때문에 전장이 너무 작아지지 않게 B.zoom-1.5가 최소
+    const pts = [];
+    for (const id of ids) {
+      if (B.units[id].t !== 'air') pts.push(B.units[id].p);
+      for (const ph of B.phases) { const a = ph.u?.[id]; if (a && a[0] != null && a[3] !== false) pts.push([a[0], a[1]]); }
+    }
+    const bounds = L.latLngBounds(pts).extend(B.center);
+    const zoom = Math.min(B.zoom, Math.max(B.zoom - 1.5, Math.floor(map.getBoundsZoom(bounds, false, L.point(80, hud + 90)) * 4) / 4));
+    const mid = map.project(bounds.getCenter(), zoom);
+    const target = map.unproject(mid.add([0, hud / 2 - 10]), zoom);
+    map.flyTo(target, zoom, { duration: 1.6 });
     render();
     setPlaying(false);
     cancelAnimationFrame(raf);
